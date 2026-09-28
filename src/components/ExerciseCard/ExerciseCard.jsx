@@ -1,0 +1,3 @@
+import SetRow from '../SetRow/SetRow'
+import './ExerciseCard.css'
+export default function ExerciseCard({item,onAddSet,onRemoveSet,onUpdateSet,onRemove}){return <article className="exercise-card card"><div className="exercise-head"><div><p className="metric-label">{item.metricType.replace('_',' + ')}</p><h3>{item.name}</h3></div><button type="button" onClick={onRemove}>Remove</button></div><div>{item.sets.map((set,i)=><SetRow key={set.localId} set={set} index={i} metricType={item.metricType} onChange={(key,value)=>onUpdateSet(i,key,value)} onRemove={()=>onRemoveSet(i)}/>)}</div><button className="add-set" type="button" onClick={onAddSet}>+ Add set</button></article>}

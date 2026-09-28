@@ -1,0 +1,3 @@
+import { useCallback,useEffect,useState } from 'react'
+import { createExercise,getExercises } from '../services/exerciseService'
+export default function useExercises(){const [exercises,setExercises]=useState([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const load=useCallback(async()=>{try{setLoading(true);setError('');setExercises(await getExercises())}catch(e){setError(e.message)}finally{setLoading(false)}},[]);useEffect(()=>{queueMicrotask(load)},[load]);async function addExercise(values){const item=await createExercise(values);setExercises(current=>[...current,item].sort((a,b)=>a.name.localeCompare(b.name)));return item}return{exercises,loading,error,reload:load,addExercise}}

@@ -1,0 +1,3 @@
+import { useState } from 'react'
+import './ExerciseSelector.css'
+export default function ExerciseSelector({exercises,onAdd,disabledIds=[]}){const [id,setId]=useState('');function add(){if(!id)return;onAdd(exercises.find(x=>x.id===id));setId('')}return <div className="selector card"><div className="field"><label htmlFor="exercise">Choose exercise</label><select id="exercise" value={id} onChange={e=>setId(e.target.value)}><option value="">Select an exercise…</option>{exercises.map(ex=><option key={ex.id} value={ex.id} disabled={disabledIds.includes(ex.id)}>{ex.name}</option>)}</select></div><button className="secondary-button" type="button" onClick={add} disabled={!id}>Add exercise</button></div>}

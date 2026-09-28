@@ -1,0 +1,4 @@
+import { NavLink } from 'react-router-dom'
+import './BottomNav.css'
+const Icon=({name})=>{if(name==='home')return <svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v10h-6v-6H9v6H3Z"/></svg>;if(name==='train')return <svg viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M9 11h6M18 7v10M21 9v6"/></svg>;if(name==='progress')return <svg viewBox="0 0 24 24"><path d="M5 19V12M12 19V5M19 19V9"/></svg>;return <svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5 21c0-4 2.5-7 7-7s7 3 7 7"/></svg>}
+export default function BottomNav(){return <nav className="bottom-nav" aria-label="Primary"><NavLink to="/workouts/new"><Icon name="train"/><span>Train</span></NavLink><NavLink to="/workouts"><Icon name="home"/><span>Workouts</span></NavLink><NavLink to="/" end><Icon name="progress"/><span>Progress</span></NavLink><NavLink to="/profile"><Icon name="profile"/><span>Profile</span></NavLink></nav>}
