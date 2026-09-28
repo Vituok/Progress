@@ -2,6 +2,7 @@
 :root { font-family:'DM Sans',sans-serif;color:#f7f8f7;background:#080b0c;font-synthesis:none;text-rendering:optimizeLegibility;--ink:#f7f8f7;--muted:#92999d;--paper:#151a1c;--line:#2b3235;--green:#82df13;--lime:#9cff22;--orange:#ff7f50;--bottom-nav-height:82px; }
 * { box-sizing: border-box; }
 body { margin:0;min-width:320px;min-height:100vh;background:radial-gradient(circle at 50% 0,#20282a 0,#0a0d0e 32rem); }
+html.handstand-open,body.handstand-open{overflow:hidden;overscroll-behavior:none}body.handstand-open{touch-action:none}body.handstand-open .bottom-nav{display:none}
 button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }

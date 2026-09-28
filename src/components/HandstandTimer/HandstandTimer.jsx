@@ -51,7 +51,16 @@ export default function HandstandTimer({ onClose, onSave }) {
   const goalPulseTimeoutRef = useRef(0)
   const restEndRef = useRef(0)
 
-  useEffect(() => () => { cancelAnimationFrame(frameRef.current); clearTimeout(goalPulseTimeoutRef.current) }, [])
+  useEffect(() => {
+    document.documentElement.classList.add('handstand-open')
+    document.body.classList.add('handstand-open')
+    return () => {
+      cancelAnimationFrame(frameRef.current)
+      clearTimeout(goalPulseTimeoutRef.current)
+      document.documentElement.classList.remove('handstand-open')
+      document.body.classList.remove('handstand-open')
+    }
+  }, [])
 
   useEffect(() => {
     if (timerState !== 'rest') return undefined
@@ -153,7 +162,7 @@ export default function HandstandTimer({ onClose, onSave }) {
 
   return <div className={`handstand-timer-shell state-${timerState}${goalPulse ? ' goal-pulse' : ''}`} role="dialog" aria-modal="true" aria-label="Handstand timer">
     <div className="handstand-timer">
-      <header><button type="button" aria-label="Close handstand timer" onClick={timerState === 'running' || timerState === 'countdown' ? undefined : onClose}>‹</button><h2>Handstand</h2><span>•••</span></header>
+      <header><button type="button" aria-label="Close handstand timer" onClick={timerState === 'running' || timerState === 'countdown' ? undefined : onClose}>‹</button><h2>Handstand</h2><span aria-hidden="true"></span></header>
       {timerState === 'idle' && <div className="timer-idle">
         <div className="handstand-visual"><img src={handstandImage} alt="Handstand"/></div>
         <OptionGroup title="Start delay" values={delayOptions} selected={startDelay} onSelect={setStartDelay} format={(value) => `${value}s`}/>
