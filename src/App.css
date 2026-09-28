@@ -1,4 +1,4 @@
-.app-shell { min-height:100vh;padding-bottom:82px; }
+.app-shell { min-height:100vh;padding-bottom:calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 24px); }
 .page-shell { width:min(880px, 100%);margin:0 auto; }
 .page { width:min(760px,calc(100% - 32px));margin:auto;padding:112px 0 60px; }
 .eyebrow { margin:0 0 8px; color:var(--green); font-size:.76rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }

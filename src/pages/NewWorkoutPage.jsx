@@ -47,11 +47,19 @@ export default function NewWorkoutPage() {
   const selectedItem = items.find((item) => item.exerciseId === selectedExerciseId)
 
   useEffect(() => {
-    if (!selectedExerciseId) return
-    const editor = document.getElementById(`exercise-${selectedExerciseId}`)
-    editor?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    editor?.querySelector('input')?.focus({ preventScroll: true })
-  }, [selectedExerciseId])
+    if (!selectedExerciseId || selectedItem?.trackingType === 'timer') return undefined
+    const frame = requestAnimationFrame(() => {
+      const editor = document.getElementById(`exercise-${selectedExerciseId}`)
+      if (!editor) return
+      const bounds = editor.getBoundingClientRect()
+      const comfortablyVisible = bounds.top >= 16 && bounds.bottom <= window.innerHeight - 106
+      if (!comfortablyVisible) {
+        const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+        editor.scrollIntoView({ behavior, block: 'start' })
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [selectedExerciseId, selectedItem?.trackingType])
 
   function selectExercise(exercise) {
     setSaveError('')
