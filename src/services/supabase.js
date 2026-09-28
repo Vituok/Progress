@@ -14,3 +14,6 @@ export async function requireUser(){
   if(error) throw new Error(`Could not start a session. Enable Anonymous Sign-Ins in Supabase. ${error.message}`)
   return data.user
 }
+
+export const getCurrentUser=()=>requireUser()
+export async function logout(){if(!supabase)return;const {error}=await supabase.auth.signOut();if(error)throw error}

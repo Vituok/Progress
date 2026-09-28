@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ExerciseSelector from '../components/ExerciseSelector/ExerciseSelector'
 import ExerciseCard from '../components/ExerciseCard/ExerciseCard'
+import HandstandTimer from '../components/HandstandTimer/HandstandTimer'
 import useExercises from '../hooks/useExercises'
 import { createWorkout } from '../services/workoutService'
 
@@ -42,6 +43,7 @@ export default function NewWorkoutPage() {
   const [newExercise, setNewExercise] = useState({ name: '', metricType: 'reps' })
 
   const savableItems = useMemo(() => cleanWorkoutItems(items), [items])
+  const selectedItem = items.find((item) => item.exerciseId === selectedExerciseId)
 
   useEffect(() => {
     if (!selectedExerciseId) return
@@ -105,7 +107,19 @@ export default function NewWorkoutPage() {
     }
   }
 
+  async function saveHandstand(finalDurationMs) {
+    const durationSeconds = (finalDurationMs / 1000).toFixed(1)
+    const nextItems = items.map((item) => item.exerciseId === selectedExerciseId
+      ? { ...item, sets: [{ ...blankSet(), durationSeconds }] }
+      : item)
+    const exercisesToSave = cleanWorkoutItems(nextItems)
+    const id = await createWorkout({ performedAt: `${date}T12:00:00`, exercises: exercisesToSave })
+    setItems(nextItems)
+    return id
+  }
+
   return <section className="page">
+    {selectedItem?.name.trim().toLocaleLowerCase() === 'handstand' && <HandstandTimer onClose={() => setSelectedExerciseId('')} onSave={saveHandstand} onDone={(id) => navigate(`/workouts/${id}`, { state: { saved: true } })} />}
     <p className="eyebrow">New session</p>
     <h1 className="page-title">Build your workout</h1>
     <div className="field date-field"><label htmlFor="performed">Workout date</label><input id="performed" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>

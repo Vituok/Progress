@@ -3,6 +3,8 @@ import TopBar from './components/TopBar/TopBar'
 import BottomNav from './components/BottomNav/BottomNav'
 import HomePage from './pages/HomePage'
 import NewWorkoutPage from './pages/NewWorkoutPage'
+import ProgressPage from './pages/ProgressPage'
+import ProfilePage from './pages/ProfilePage'
 import WorkoutHistoryPage from './pages/WorkoutHistoryPage'
 import WorkoutDetailsPage from './pages/WorkoutDetailsPage'
 import './App.css'
@@ -17,6 +19,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/workouts/new" element={<NewWorkoutPage />} />
+            <Route path="/progress" element={<ProgressPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/workouts" element={<WorkoutHistoryPage />} />
             <Route path="/workouts/:id" element={<WorkoutDetailsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
