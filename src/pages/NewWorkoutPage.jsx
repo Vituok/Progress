@@ -41,6 +41,7 @@ export default function NewWorkoutPage() {
   const [saveError, setSaveError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [newExercise, setNewExercise] = useState({ name: '', metricType: 'reps' })
+  const [handstandModeOpen, setHandstandModeOpen] = useState(false)
 
   const savableItems = useMemo(() => cleanWorkoutItems(items), [items])
   const selectedItem = items.find((item) => item.exerciseId === selectedExerciseId)
@@ -55,6 +56,8 @@ export default function NewWorkoutPage() {
   function selectExercise(exercise) {
     setSaveError('')
     setSelectedExerciseId(exercise.id)
+    const timerBased = exercise.name.trim().toLocaleLowerCase() === 'handstand'
+    if (timerBased) setHandstandModeOpen(true)
     setItems((current) => {
       const withoutEmptyDrafts = current.filter((item) => item.exerciseId === exercise.id || hasValidSet(item))
       if (withoutEmptyDrafts.some((item) => item.exerciseId === exercise.id)) return withoutEmptyDrafts
@@ -62,9 +65,16 @@ export default function NewWorkoutPage() {
         exerciseId: exercise.id,
         name: exercise.name,
         metricType: exercise.metricType,
-        sets: [blankSet()],
+        trackingType: timerBased ? 'timer' : exercise.metricType,
+        sets: timerBased ? [] : [blankSet()],
       }]
     })
+  }
+
+  function closeHandstand() {
+    setHandstandModeOpen(false)
+    setSelectedExerciseId('')
+    setItems((current) => current.filter((item) => item.trackingType !== 'timer' || hasValidSet(item)))
   }
 
   function patchItem(exerciseId, update) {
@@ -107,19 +117,18 @@ export default function NewWorkoutPage() {
     }
   }
 
-  async function saveHandstand(finalDurationMs) {
+  function saveHandstand(finalDurationMs) {
     const durationSeconds = (finalDurationMs / 1000).toFixed(1)
-    const nextItems = items.map((item) => item.exerciseId === selectedExerciseId
-      ? { ...item, sets: [{ ...blankSet(), durationSeconds }] }
-      : item)
-    const exercisesToSave = cleanWorkoutItems(nextItems)
-    const id = await createWorkout({ performedAt: `${date}T12:00:00`, exercises: exercisesToSave })
-    setItems(nextItems)
-    return id
+    const setNumber = (selectedItem?.sets.length ?? 0) + 1
+    setItems((current) => current.map((item) => {
+      if (item.exerciseId !== selectedExerciseId) return item
+      return { ...item, sets: [...item.sets, { ...blankSet(), durationSeconds }] }
+    }))
+    return setNumber
   }
 
   return <section className="page">
-    {selectedItem?.name.trim().toLocaleLowerCase() === 'handstand' && <HandstandTimer onClose={() => setSelectedExerciseId('')} onSave={saveHandstand} onDone={(id) => navigate(`/workouts/${id}`, { state: { saved: true } })} />}
+    {handstandModeOpen && selectedItem?.trackingType === 'timer' && <HandstandTimer onClose={closeHandstand} onSave={saveHandstand} />}
     <p className="eyebrow">New session</p>
     <h1 className="page-title">Build your workout</h1>
     <div className="field date-field"><label htmlFor="performed">Workout date</label><input id="performed" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
@@ -133,7 +142,7 @@ export default function NewWorkoutPage() {
         <button className="secondary-button" type="submit">Create exercise</button>
       </form>}
     </>}
-    <div className="stack workout-builder">{items.map((item) => <ExerciseCard
+    <div className="stack workout-builder">{items.filter((item) => item.trackingType !== 'timer').map((item) => <ExerciseCard
       key={item.exerciseId}
       item={item}
       active={item.exerciseId === selectedExerciseId}

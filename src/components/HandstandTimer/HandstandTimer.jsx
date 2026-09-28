@@ -21,7 +21,7 @@ const formatGoal = (milliseconds) => {
   return minutes ? `${minutes}:${String(seconds).padStart(2, '0')}` : `${seconds}s`
 }
 
-export default function HandstandTimer({ onClose, onSave, onDone }) {
+export default function HandstandTimer({ onClose, onSave }) {
   const [timerState, setTimerState] = useState('idle')
   const [startDelay, setStartDelay] = useState(3)
   const [goalMs, setGoalMs] = useState(0)
@@ -37,15 +37,33 @@ export default function HandstandTimer({ onClose, onSave, onDone }) {
   const [finalMs, setFinalMs] = useState(0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [savedWorkoutId, setSavedWorkoutId] = useState(null)
+  const [savedSetNumber, setSavedSetNumber] = useState(1)
+  const [showCustomRest, setShowCustomRest] = useState(false)
+  const [restMinutes, setRestMinutes] = useState(2)
+  const [restSeconds, setRestSeconds] = useState(30)
+  const [restTotalMs, setRestTotalMs] = useState(0)
+  const [restRemainingMs, setRestRemainingMs] = useState(0)
   const frameRef = useRef(0)
   const countdownStartRef = useRef(0)
   const runningStartRef = useRef(0)
   const audioRef = useRef(null)
   const goalNotificationPlayedRef = useRef(false)
   const goalPulseTimeoutRef = useRef(0)
+  const restEndRef = useRef(0)
 
   useEffect(() => () => { cancelAnimationFrame(frameRef.current); clearTimeout(goalPulseTimeoutRef.current) }, [])
+
+  useEffect(() => {
+    if (timerState !== 'rest') return undefined
+    const tick = () => {
+      const remaining = Math.max(0, restEndRef.current - performance.now())
+      setRestRemainingMs(remaining)
+      if (remaining <= 0) { playSuccessSound(); setTimerState('ready'); return }
+      frameRef.current = requestAnimationFrame(tick)
+    }
+    frameRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [timerState])
 
   function unlockAudio() {
     try {
@@ -103,6 +121,21 @@ export default function HandstandTimer({ onClose, onSave, onDone }) {
 
   function reset() { cancelAnimationFrame(frameRef.current); clearTimeout(goalPulseTimeoutRef.current); setElapsedMs(0); setRawMs(0); setFinalMs(0); setSaveError(''); setGoalReached(false); setGoalPulse(false); goalNotificationPlayedRef.current = false; setTimerState('idle') }
 
+  function startNextSet() {
+    setShowCustomRest(false); setRestTotalMs(0); setRestRemainingMs(0); reset()
+  }
+
+  function startRest(milliseconds) {
+    if (milliseconds < 1000) return
+    unlockAudio(); setShowCustomRest(false); setRestTotalMs(milliseconds); setRestRemainingMs(milliseconds); restEndRef.current = performance.now() + milliseconds; setTimerState('rest')
+  }
+
+  function addRestTime() {
+    restEndRef.current += 30000
+    setRestTotalMs((value) => value + 30000)
+    setRestRemainingMs((value) => value + 30000)
+  }
+
   function setCustomGoal() {
     const value = (Number(customMinutes) * 60 + Number(customSeconds)) * 1000
     if (value < 1000 || value > 3599000) return
@@ -111,7 +144,7 @@ export default function HandstandTimer({ onClose, onSave, onDone }) {
 
   async function saveResult() {
     if (finalMs <= 0) return
-    try { setSaving(true); setSaveError(''); const workoutId = await onSave(finalMs); setSavedWorkoutId(workoutId); setTimerState('saved') }
+    try { setSaving(true); setSaveError(''); const setNumber = await onSave(finalMs); setSavedSetNumber(setNumber); setTimerState('saved') }
     catch (error) { setSaveError(error.message) }
     finally { setSaving(false) }
   }
@@ -130,7 +163,9 @@ export default function HandstandTimer({ onClose, onSave, onDone }) {
       {timerState === 'countdown' && <div className="timer-stage"><div className="stage-figure"><img src={handstandImage} alt=""/></div><CircularTimer progress={countdownProgress}><span>Get ready</span><strong className="countdown-number" key={countdownValue}>{countdownValue}</strong></CircularTimer><button className="timer-secondary" type="button" onClick={reset}>Cancel</button></div>}
       {timerState === 'running' && <div className="timer-stage"><div className="stage-figure"><img src={handstandImage} alt=""/></div><CircularTimer progress={ringProgress}><strong className="running-time">{formatTime(elapsedMs)}</strong>{goalReached && <span className="goal-reached-indicator">✓ Goal reached</span>}{goalMs > 0 && <span>Goal: {formatGoal(goalMs)}</span>}</CircularTimer><button className="timer-secondary stop" type="button" onClick={stop}>■ <span>Stop</span></button></div>}
       {timerState === 'stopped' && <div className="timer-stopped"><p>Recorded time</p><h3>{formatTime(rawMs)}</h3><TimeRewindDial rawMs={rawMs} finalMs={finalMs} onChange={setFinalMs}/><p>Final time</p><strong className="final-time">{formatTime(finalMs)}</strong>{saveError && <p className="timer-error">{saveError}</p>}<div className="timer-actions"><button type="button" onClick={reset}>Discard</button><button className="timer-primary" type="button" disabled={saving || finalMs <= 0} onClick={saveResult}>✓ {saving ? 'Saving…' : 'Save'}</button></div></div>}
-      {timerState === 'saved' && <div className="timer-saved"><div className="saved-check">✓</div><h3>Workout saved!</h3><p>Handstand</p><div className="saved-result"><img src={handstandImage} alt=""/><div><strong>{formatTime(finalMs)}</strong><span>Handstand time</span></div></div><button className="timer-primary" type="button" onClick={() => onDone(savedWorkoutId)}>Done</button></div>}
+      {timerState === 'saved' && <div className="timer-saved"><div className="saved-check">✓</div><p className="saved-kicker">Set saved</p><h3>HANDSTAND</h3><strong className="saved-duration">{formatTime(finalMs)}</strong><p>Set {savedSetNumber}</p><section className="next-set-panel"><h4>WHAT NEXT?</h4><button className="timer-primary" type="button" onClick={startNextSet}>Start next set</button><p>Rest before next set</p><div className="rest-options"><button type="button" onClick={() => startRest(120000)}>2:00</button><button type="button" onClick={() => startRest(180000)}>3:00</button><button type="button" onClick={() => setShowCustomRest(true)}>Custom</button></div>{showCustomRest && <CustomRest minutes={restMinutes} seconds={restSeconds} onMinutes={setRestMinutes} onSeconds={setRestSeconds} onCancel={() => setShowCustomRest(false)} onStart={() => startRest((Number(restMinutes) * 60 + Number(restSeconds)) * 1000)}/>}<button className="back-to-exercises" type="button" onClick={onClose}>Back to exercises</button></section></div>}
+      {timerState === 'rest' && <div className="timer-rest"><p className="rest-label">REST</p><CircularTimer progress={restTotalMs ? restRemainingMs / restTotalMs : 0}><strong className="rest-time">{formatTime(restRemainingMs, false)}</strong><span>Next: Handstand — Set {savedSetNumber + 1}</span></CircularTimer><div className="rest-actions"><button type="button" onClick={() => setTimerState('ready')}>Skip rest</button><button type="button" onClick={addRestTime}>+30 sec</button></div></div>}
+      {timerState === 'ready' && <div className="timer-ready"><div className="saved-check">✓</div><p>READY</p><h3>Ready for next set</h3><span>Handstand — Set {savedSetNumber + 1}</span><button className="timer-primary" type="button" onClick={startNextSet}>Start next set</button></div>}
     </div>
   </div>
 }
@@ -143,4 +178,9 @@ function GoalSelector({ goalMs, onSelect, showCustom, onShowCustom, customMinute
   const isCustom = goalMs > 0 && !goalOptions.includes(goalMs)
   const totalCustomSeconds = Number(customMinutes) * 60 + Number(customSeconds)
   return <fieldset className="timer-options goal-options"><legend>Goal time</legend><div className="goal-preset-grid">{goalOptions.map((value) => <button type="button" aria-pressed={goalMs === value} className={goalMs === value ? 'selected' : ''} key={value} onClick={() => { onSelect(value); onCancel() }}>{value === 0 ? 'Off' : `${value / 1000}s`}</button>)}</div><button type="button" aria-pressed={isCustom} className={isCustom ? 'selected custom-goal-button' : 'custom-goal-button'} onClick={onShowCustom}>{isCustom ? `Custom goal: ${formatGoal(goalMs)}` : 'Custom goal'}</button>{showCustom && <div className="custom-goal-panel"><p>Custom goal</p><div className="custom-time-fields"><label>MIN<select aria-label="Custom goal minutes" value={customMinutes} onChange={(event) => onMinutes(event.target.value)}>{Array.from({length:60},(_,value)=><option key={value} value={value}>{String(value).padStart(2,'0')}</option>)}</select></label><b>:</b><label>SEC<select aria-label="Custom goal seconds" value={customSeconds} onChange={(event) => onSeconds(event.target.value)}>{Array.from({length:60},(_,value)=><option key={value} value={value}>{String(value).padStart(2,'0')}</option>)}</select></label></div><div className="custom-goal-actions"><button type="button" onClick={onCancel}>Cancel</button><button type="button" className="selected" disabled={totalCustomSeconds < 1} onClick={onConfirm}>Set goal</button></div></div>}</fieldset>
+}
+
+function CustomRest({ minutes, seconds, onMinutes, onSeconds, onCancel, onStart }) {
+  const totalSeconds = Number(minutes) * 60 + Number(seconds)
+  return <div className="custom-rest-panel"><p>REST TIME</p><div className="custom-time-fields"><label>MIN<select aria-label="Custom rest minutes" value={minutes} onChange={(event) => onMinutes(event.target.value)}>{Array.from({length:60},(_,value)=><option key={value} value={value}>{String(value).padStart(2,'0')}</option>)}</select></label><b>:</b><label>SEC<select aria-label="Custom rest seconds" value={seconds} onChange={(event) => onSeconds(event.target.value)}>{Array.from({length:60},(_,value)=><option key={value} value={value}>{String(value).padStart(2,'0')}</option>)}</select></label></div><div className="custom-goal-actions"><button type="button" onClick={onCancel}>Cancel</button><button type="button" className="selected" disabled={totalSeconds < 1} onClick={onStart}>Start rest</button></div></div>
 }
