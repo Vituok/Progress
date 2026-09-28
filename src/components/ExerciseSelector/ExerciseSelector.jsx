@@ -2,6 +2,9 @@ import pullUpsImage from '../../assets/exercises/pull-ups.png'
 import pushUpsImage from '../../assets/exercises/push-ups.png'
 import handstandImage from '../../assets/exercises/handstand.png'
 import cableRowImage from '../../assets/exercises/seated-cable-row.png'
+import legExtensionImage from '../../assets/exercises/leg-extension.png'
+import legCurlImage from '../../assets/exercises/leg-curl.png'
+import chestDeclineImage from '../../assets/exercises/chest-decline.png'
 import './ExerciseSelector.css'
 
 const featuredExercises = [
@@ -9,6 +12,9 @@ const featuredExercises = [
   { name: 'Push-ups', image: pushUpsImage },
   { name: 'Handstand', image: handstandImage },
   { name: 'Seated Cable Row', image: cableRowImage },
+  { name: 'Leg Extension', image: legExtensionImage },
+  { name: 'Leg Curl', image: legCurlImage },
+  { name: 'Chest Decline', image: chestDeclineImage },
 ]
 
 const normalize = (name) => name.trim().toLocaleLowerCase()
