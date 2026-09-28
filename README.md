@@ -11,3 +11,4 @@ A focused workout logger built with React, Vite, and Supabase.
 5. Run `npm install` and `npm run dev`.
 
 The first session automatically creates Pull-ups, Push-ups, Seated Cable Row, and Handstand for the anonymous user. Workout drafts stay in React state and the `create_workout` database function saves the workout, exercises, and sets in one transaction.
+ .
