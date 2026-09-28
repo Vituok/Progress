@@ -13,9 +13,18 @@ const mapWorkout=row=>({
 })
 const selection='id,performed_at,workout_exercises(id,position,exercise:exercises(id,name,metric_type),sets(id,position,reps,weight,duration_seconds))'
 
+const isPositive=value=>value!==''&&value!==null&&value!==undefined&&Number.isFinite(Number(value))&&Number(value)>0
+const isValidSet=(set,metricType)=>metricType==='duration'
+  ? isPositive(set.durationSeconds)
+  : metricType==='weight_reps'
+    ? isPositive(set.reps)&&set.weight!==''&&set.weight!==null&&set.weight!==undefined&&Number.isFinite(Number(set.weight))&&Number(set.weight)>=0
+    : isPositive(set.reps)
+
 export async function createWorkout({performedAt,exercises}){
   await requireUser()
-  const payload={performed_at:new Date(performedAt).toISOString(),exercises:exercises.map(ex=>({exercise_id:ex.exerciseId,sets:ex.sets.map(s=>({reps:s.reps===''?null:Number(s.reps),weight:s.weight===''?null:Number(s.weight),duration_seconds:s.durationSeconds===''?null:Number(s.durationSeconds)}))}))}
+  const cleanExercises=exercises.map(ex=>({...ex,sets:ex.sets.filter(set=>isValidSet(set,ex.metricType))})).filter(ex=>ex.sets.length>0)
+  if(!cleanExercises.length)throw new Error('Enter at least one valid set before saving the workout.')
+  const payload={performed_at:new Date(performedAt).toISOString(),exercises:cleanExercises.map(ex=>({exercise_id:ex.exerciseId,sets:ex.sets.map(s=>({reps:s.reps===''?null:Number(s.reps),weight:s.weight===''?null:Number(s.weight),duration_seconds:s.durationSeconds===''?null:Number(s.durationSeconds)}))}))}
   const {data,error}=await supabase.rpc('create_workout', {payload})
   if(error) throw error
   return data

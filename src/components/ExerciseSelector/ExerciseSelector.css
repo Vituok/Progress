@@ -1,1 +1,1 @@
-.selector{display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px}@media(max-width:520px){.selector{grid-template-columns:1fr}}
+.selector{display:block}.selector select{cursor:pointer}
