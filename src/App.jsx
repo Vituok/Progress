@@ -7,10 +7,15 @@ import ProgressPage from './pages/ProgressPage'
 import ProfilePage from './pages/ProfilePage'
 import WorkoutHistoryPage from './pages/WorkoutHistoryPage'
 import WorkoutDetailsPage from './pages/WorkoutDetailsPage'
+import AuthScreen from './pages/AuthScreen'
+import { useAuth } from './auth/useAuth'
 import './App.css'
 import './styles/pages.css'
 
 export default function App() {
+  const { session, loading } = useAuth()
+  if (loading) return <div className="auth-loading"><div className="auth-spinner"/><span>Restoring your session…</span></div>
+  if (!session) return <AuthScreen />
   return (
     <BrowserRouter>
       <div className="app-shell">

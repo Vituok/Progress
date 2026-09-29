@@ -43,6 +43,8 @@ export default function HandstandTimer({ onClose, onSave }) {
   const [restSeconds, setRestSeconds] = useState(30)
   const [restTotalMs, setRestTotalMs] = useState(0)
   const [restRemainingMs, setRestRemainingMs] = useState(0)
+  const [wakeWarning, setWakeWarning] = useState(false)
+  const [requestingWakeLock, setRequestingWakeLock] = useState(false)
   const frameRef = useRef(0)
   const countdownStartRef = useRef(0)
   const runningStartRef = useRef(0)
@@ -50,6 +52,11 @@ export default function HandstandTimer({ onClose, onSave }) {
   const goalNotificationPlayedRef = useRef(false)
   const goalPulseTimeoutRef = useRef(0)
   const restEndRef = useRef(0)
+  const wakeLockRef = useRef(null)
+  const intentionalWakeReleaseRef = useRef(false)
+  const timerStateRef = useRef(timerState)
+
+  useEffect(() => { timerStateRef.current = timerState }, [timerState])
 
   useEffect(() => {
     document.documentElement.classList.add('handstand-open')
@@ -57,6 +64,7 @@ export default function HandstandTimer({ onClose, onSave }) {
     return () => {
       cancelAnimationFrame(frameRef.current)
       clearTimeout(goalPulseTimeoutRef.current)
+      releaseWakeLock()
       document.documentElement.classList.remove('handstand-open')
       document.body.classList.remove('handstand-open')
     }
@@ -95,9 +103,35 @@ export default function HandstandTimer({ onClose, onSave }) {
     } catch { /* Audio is optional. */ }
   }
 
-  function start(event) {
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) { setWakeWarning(true); return false }
+    try {
+      const sentinel = await navigator.wakeLock.request('screen')
+      wakeLockRef.current = sentinel
+      intentionalWakeReleaseRef.current = false
+      sentinel.addEventListener('release', () => {
+        wakeLockRef.current = null
+        if (!intentionalWakeReleaseRef.current && (timerStateRef.current === 'countdown' || timerStateRef.current === 'running')) setWakeWarning(true)
+        intentionalWakeReleaseRef.current = false
+      })
+      return true
+    } catch { setWakeWarning(true); return false }
+  }
+
+  function releaseWakeLock() {
+    const sentinel = wakeLockRef.current
+    if (!sentinel) return
+    intentionalWakeReleaseRef.current = true
+    wakeLockRef.current = null
+    sentinel.release().catch(() => { intentionalWakeReleaseRef.current = false })
+  }
+
+  function prepareAttempt() {
     unlockAudio(); setSaveError(''); setElapsedMs(0); setCountdownValue(startDelay); setCountdownProgress(0); setGoalReached(false); setGoalPulse(false); goalNotificationPlayedRef.current = false
-    countdownStartRef.current = event.timeStamp; setTimerState('countdown')
+  }
+
+  function beginCountdown() {
+    countdownStartRef.current = performance.now(); setTimerState('countdown')
     const tick = (now) => {
       const passed = now - countdownStartRef.current
       const remaining = Math.max(0, startDelay * 1000 - passed)
@@ -107,6 +141,18 @@ export default function HandstandTimer({ onClose, onSave }) {
       frameRef.current = requestAnimationFrame(tick)
     }
     frameRef.current = requestAnimationFrame(tick)
+  }
+
+  async function start() {
+    prepareAttempt(); setRequestingWakeLock(true)
+    const locked = await requestWakeLock()
+    setRequestingWakeLock(false)
+    if (locked) beginCountdown()
+  }
+
+  function continueWithoutWakeLock() {
+    setWakeWarning(false)
+    if (timerStateRef.current === 'idle') beginCountdown()
   }
 
   function beginRunning(startTimestamp) {
@@ -125,10 +171,11 @@ export default function HandstandTimer({ onClose, onSave }) {
   function stop(event) {
     cancelAnimationFrame(frameRef.current)
     const measured = event.timeStamp - runningStartRef.current
+    releaseWakeLock()
     setElapsedMs(measured); setRawMs(measured); setFinalMs(measured); setTimerState('stopped')
   }
 
-  function reset() { cancelAnimationFrame(frameRef.current); clearTimeout(goalPulseTimeoutRef.current); setElapsedMs(0); setRawMs(0); setFinalMs(0); setSaveError(''); setGoalReached(false); setGoalPulse(false); goalNotificationPlayedRef.current = false; setTimerState('idle') }
+  function reset() { cancelAnimationFrame(frameRef.current); clearTimeout(goalPulseTimeoutRef.current); releaseWakeLock(); setWakeWarning(false); setElapsedMs(0); setRawMs(0); setFinalMs(0); setSaveError(''); setGoalReached(false); setGoalPulse(false); goalNotificationPlayedRef.current = false; setTimerState('idle') }
 
   function startNextSet() {
     setShowCustomRest(false); setRestTotalMs(0); setRestRemainingMs(0); reset()
@@ -167,7 +214,7 @@ export default function HandstandTimer({ onClose, onSave }) {
         <div className="handstand-visual"><img src={handstandImage} alt="Handstand"/></div>
         <OptionGroup title="Start delay" values={delayOptions} selected={startDelay} onSelect={setStartDelay} format={(value) => `${value}s`}/>
         <GoalSelector goalMs={goalMs} onSelect={setGoalMs} showCustom={showCustomGoal} onShowCustom={() => setShowCustomGoal(true)} customMinutes={customMinutes} customSeconds={customSeconds} onMinutes={setCustomMinutes} onSeconds={setCustomSeconds} onCancel={() => setShowCustomGoal(false)} onConfirm={setCustomGoal}/>
-        <button className="timer-primary" type="button" onClick={start}>▶ <span>Start</span></button>
+        <button className="timer-primary" type="button" disabled={requestingWakeLock} onClick={start}>▶ <span>{requestingWakeLock ? 'Starting…' : 'Start'}</span></button>
       </div>}
       {timerState === 'countdown' && <div className="timer-stage"><div className="stage-figure"><img src={handstandImage} alt=""/></div><CircularTimer progress={countdownProgress}><span>Get ready</span><strong className="countdown-number" key={countdownValue}>{countdownValue}</strong></CircularTimer><button className="timer-secondary" type="button" onClick={reset}>Cancel</button></div>}
       {timerState === 'running' && <div className="timer-stage"><div className="stage-figure"><img src={handstandImage} alt=""/></div><CircularTimer progress={ringProgress}><strong className="running-time">{formatTime(elapsedMs)}</strong>{goalReached && <span className="goal-reached-indicator">✓ Goal reached</span>}{goalMs > 0 && <span>Goal: {formatGoal(goalMs)}</span>}</CircularTimer><button className="timer-secondary stop" type="button" onClick={stop}>■ <span>Stop</span></button></div>}
@@ -175,6 +222,7 @@ export default function HandstandTimer({ onClose, onSave }) {
       {timerState === 'saved' && <div className="timer-saved"><div className="saved-check">✓</div><p className="saved-kicker">Set saved</p><h3>HANDSTAND</h3><strong className="saved-duration">{formatTime(finalMs)}</strong><p>Set {savedSetNumber}</p><section className="next-set-panel"><h4>WHAT NEXT?</h4><button className="timer-primary" type="button" onClick={startNextSet}>Start next set</button><p>Rest before next set</p><div className="rest-options"><button type="button" onClick={() => startRest(120000)}>2:00</button><button type="button" onClick={() => startRest(180000)}>3:00</button><button type="button" onClick={() => setShowCustomRest(true)}>Custom</button></div>{showCustomRest && <CustomRest minutes={restMinutes} seconds={restSeconds} onMinutes={setRestMinutes} onSeconds={setRestSeconds} onCancel={() => setShowCustomRest(false)} onStart={() => startRest((Number(restMinutes) * 60 + Number(restSeconds)) * 1000)}/>}<button className="back-to-exercises" type="button" onClick={onClose}>Back to exercises</button></section></div>}
       {timerState === 'rest' && <div className="timer-rest"><p className="rest-label">REST</p><CircularTimer progress={restTotalMs ? restRemainingMs / restTotalMs : 0}><strong className="rest-time">{formatTime(restRemainingMs, false)}</strong><span>Next: Handstand — Set {savedSetNumber + 1}</span></CircularTimer><div className="rest-actions"><button type="button" onClick={() => setTimerState('ready')}>Skip rest</button><button type="button" onClick={addRestTime}>+30 sec</button></div></div>}
       {timerState === 'ready' && <div className="timer-ready"><div className="saved-check">✓</div><p>READY</p><h3>Ready for next set</h3><span>Handstand — Set {savedSetNumber + 1}</span><button className="timer-primary" type="button" onClick={startNextSet}>Start next set</button></div>}
+      {wakeWarning && <div className="wake-warning-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="wake-warning-title" aria-describedby="wake-warning-message"><section className="wake-warning"><div className="wake-warning-icon">☾</div><h3 id="wake-warning-title">Screen may turn off</h3><p id="wake-warning-message">Your phone may be using Low Power Mode or other system settings that prevent the app from keeping the screen awake. The timer will continue, but your screen may dim or lock.</p><div><button type="button" onClick={reset}>Cancel</button><button className="timer-primary" type="button" onClick={continueWithoutWakeLock}>Continue</button></div></section></div>}
     </div>
   </div>
 }
