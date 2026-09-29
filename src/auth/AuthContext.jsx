@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../services/supabase'
 import { AuthContext } from './auth-context'
-const redirectTo = () => window.location.origin
+
+const authRedirectTo = () => new URL('/profile', window.location.origin).toString()
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(Boolean(supabase))
+  const oauthStartingRef = useRef(false)
 
   useEffect(() => {
     if (!supabase) return undefined
@@ -17,19 +19,26 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (active) { setSession(nextSession); setLoading(false) }
+      if (active) { oauthStartingRef.current = false; setSession(nextSession); setLoading(false) }
     })
     return () => { active = false; subscription.unsubscribe() }
   }, [])
 
   async function signInWithGoogle() {
     if (!supabase) throw new Error('Supabase is not configured.')
-    const options = { redirectTo: redirectTo() }
-    const result = session?.user?.is_anonymous
-      ? await supabase.auth.linkIdentity({ provider: 'google', options })
-      : await supabase.auth.signInWithOAuth({ provider: 'google', options })
-    if (result.error) throw result.error
-    return result.data
+    if (oauthStartingRef.current) return null
+    oauthStartingRef.current = true
+    try {
+      const options = { redirectTo: authRedirectTo() }
+      const result = session?.user?.is_anonymous
+        ? await supabase.auth.linkIdentity({ provider: 'google', options })
+        : await supabase.auth.signInWithOAuth({ provider: 'google', options })
+      if (result.error) throw result.error
+      return result.data
+    } catch (error) {
+      oauthStartingRef.current = false
+      throw error
+    }
   }
 
   async function signInWithEmail(email) {
@@ -37,11 +46,11 @@ export function AuthProvider({ children }) {
     const normalizedEmail = email.trim().toLocaleLowerCase()
     if (!normalizedEmail) throw new Error('Enter your email address.')
     if (session?.user?.is_anonymous) {
-      const { data, error } = await supabase.auth.updateUser({ email: normalizedEmail }, { emailRedirectTo: redirectTo() })
+      const { data, error } = await supabase.auth.updateUser({ email: normalizedEmail }, { emailRedirectTo: authRedirectTo() })
       if (error) throw error
       return data
     }
-    const { data, error } = await supabase.auth.signInWithOtp({ email: normalizedEmail, options: { emailRedirectTo: redirectTo(), shouldCreateUser: true } })
+    const { data, error } = await supabase.auth.signInWithOtp({ email: normalizedEmail, options: { emailRedirectTo: authRedirectTo(), shouldCreateUser: true } })
     if (error) throw error
     return data
   }
